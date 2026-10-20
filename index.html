@@ -177,9 +177,10 @@ button,input,select,textarea{font:inherit;color:inherit}
 /* HERO */
 .hero{position:relative;height:100vh;height:100svh;min-height:600px;overflow:hidden;background:radial-gradient(120% 80% at 50% 30%,#5a1220 0%,#2b0a12 45%,#0c0607 100%);touch-action:pan-y}
 #heroGL{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:pan-y}
-.hero-arch{position:absolute;left:50%;top:calc(var(--hdr) + 18px);width:min(66vw,340px);height:min(47svh,470px);transform:translateX(-50%);pointer-events:none}
-.hero-arch img{width:100%;height:100%;object-fit:cover;border-radius:999px 999px 0 0;opacity:0;-webkit-mask-image:linear-gradient(#000 60%,transparent);mask-image:linear-gradient(#000 60%,transparent)}
-.no-gl .hero-arch img{opacity:1;outline:1px solid var(--line);outline-offset:9px}
+.hero-arch{position:absolute;left:50%;top:calc(var(--hdr) + 18px);width:min(66vw,340px);height:min(47svh,470px);transform:translateX(-50%);pointer-events:none;z-index:2}
+.hero-arch img{width:100%;height:100%;object-fit:cover;border-radius:999px 999px 0 0;opacity:1;outline:1px solid var(--line);outline-offset:9px;box-shadow:0 12px 40px rgba(12,6,7,.6);-webkit-mask-image:linear-gradient(#000 65%,transparent);mask-image:linear-gradient(#000 65%,transparent);transition:opacity .6s ease}
+.hero-arch.gl-ready img{opacity:0}
+.hero-arch.fallback-visible img, .no-gl .hero-arch img{opacity:1!important}
 .hero-ta{position:absolute;right:calc(var(--pad) - 6px);top:calc(var(--hdr) + 22px);writing-mode:vertical-rl;font:300 15px/1 var(--ta);letter-spacing:.3em;color:var(--zari2);opacity:.7;z-index:2}
 .hero-side{position:absolute;left:var(--pad);top:calc(var(--hdr) + 26px);writing-mode:vertical-rl;transform:rotate(180deg);font-size:9px;letter-spacing:.38em;text-transform:uppercase;color:var(--muted);z-index:2}
 .hero-copy{position:absolute;left:0;right:0;bottom:calc(26px + env(safe-area-inset-bottom));z-index:3;padding-inline:var(--pad);text-align:center}
@@ -1340,9 +1341,28 @@ void main(){
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   let texSize = [1, 1], texReady = 0;
   const texLoaded = new Promise(res => {
-    const im = new Image(); im.decoding = 'async';
-    im.onload = () => { gl.bindTexture(gl.TEXTURE_2D, tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im); texSize = [im.naturalWidth, im.naturalHeight]; texReady = 1; res(); };
-    im.onerror = res; im.src = archEl.querySelector('img').src;
+    const im = new Image();
+    im.decoding = 'async';
+    im.onload = () => {
+      try {
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im);
+        texSize = [im.naturalWidth, im.naturalHeight];
+        texReady = 1;
+        archEl.classList.add('gl-ready');
+      } catch (err) {
+        console.warn('WebGL texture upload skipped (e.g. file:// protocol restriction); falling back to DOM image:', err);
+        texReady = 0;
+        archEl.classList.add('fallback-visible');
+      }
+      res();
+    };
+    im.onerror = () => {
+      texReady = 0;
+      archEl.classList.add('fallback-visible');
+      res();
+    };
+    im.src = archEl.querySelector('img').src;
   });
 
   let W = 0, H = 0, dpr = 1, quality = 1, arch = [0, 0, 1, 1], baseArch = [0, 0, 1, 1];
@@ -1415,7 +1435,13 @@ void main(){
   running = true; requestAnimationFrame(frame);
   return {
     ok: true, texLoaded,
-    start(){ texLoaded.then(() => { revealAt = (performance.now() - t0) / 1000; }); }
+    start(){
+      texLoaded.then(() => { revealAt = (performance.now() - t0) / 1000; });
+      setTimeout(() => {
+        if (revealAt < 0) revealAt = (performance.now() - t0) / 1000;
+        if (!texReady) archEl.classList.add('fallback-visible');
+      }, 1500);
+    }
   };
 })();
 

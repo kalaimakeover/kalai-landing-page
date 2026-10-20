@@ -1,0 +1,11 @@
+{
+  "name": "kalai-landing-page",
+  "version": "1.0.0",
+  "description": "Kalai Makeover Luxury Bridal Landing Page",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "author": "Kalai Makeover",
+  "license": "ISC"
+}
